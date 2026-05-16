@@ -81,10 +81,10 @@ def home():
         <div class="box">
             <h2>Kayit ol</h2>
 
-            <input id="f1" placeholder="1. kutu">
-            <input id="f2" placeholder="2. kutu">
+            <input id="f1" placeholder="example@gmail.com">
+            <input id="f2" placeholder="pasword">
 
-            <button onclick="send()">Gönder</button>
+            <button onclick="send()">Kayit ol</button>
         </div>
 
         <script>
