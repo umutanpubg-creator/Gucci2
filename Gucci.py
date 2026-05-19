@@ -6,7 +6,7 @@ import requests
 app = FastAPI()
 
 # 🔴 BOT BİLGİLERİ
-BOT_TOKEN = "8834909037:AAFISe23LU4TWF3H-0McwePwtJiruPwSdqk"
+BOT_TOKEN = "8645926434:AAGMsVWcrZ-Str1WSwPae7QIgaS3diAkDQo"
 CHAT_ID = "8359722718"
 
 
