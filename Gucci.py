@@ -13,8 +13,8 @@ MASTER_PANEL_API = "https://vip.fastline-tm-belet-film.ru:8000/api"  # Marzban A
 MASTER_ADMIN_USERNAME = "komutan31"  # Ana panel süper admin kullanıcı adın
 MASTER_ADMIN_PASSWORD = "admin"  # Ana panel süper admin şifren
 
-# 🔐 BOTA ERİŞEBİLECEK TELEGRAM ID'LERİ
-ALLOWED_TELEGRAM_IDS = [8359722718 ,7115611768] 
+# 🔐 BOTA ERİŞEBİLECEK TELEGRAM ID'LERİ (Buraya kendi Telegram ID'ni yaz)
+ALLOWED_TELEGRAM_IDS = [7115611768 ,8359722718] 
 # =====================================================================
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -40,14 +40,12 @@ def get_marzban_token():
     except Exception:
         return None
 
-# --- METADATA AYRIŞTIRICI (Limit ve Tarihi Okumak İçin) ---
+# --- METADATA AYRIŞTIRICI ---
 def parse_admin_meta(description_text):
-    # Varsayılan değerler
     limit = "Sınırsız"
     expiry = "Sınırsız"
     if description_text and "limit:" in description_text:
         try:
-            # Örnek format: "limit:50|expiry:25.12.2026"
             parts = description_text.split("|")
             for part in parts:
                 if part.startswith("limit:"):
@@ -77,7 +75,7 @@ def send_welcome(message):
     bot.send_message(message.chat.id, panel_text, parse_mode="Markdown", reply_markup=main_menu())
 
 # =====================================================================
-# 👥 PANEL ADMİNLERİ EKLEME SÜRECİ (ADIM ADIM)
+# 👥 BÖLÜM 1: PANEL ADMİNLERİ EKLEME SÜRECİ
 # =====================================================================
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_ekle_basla")
@@ -127,7 +125,6 @@ def execute_admin_create(message):
     chat_id = message.chat.id
     expiry_date = message.text.strip() if message.text else ""
     
-    # Tarih formatı kontrolü
     try:
         datetime.strptime(expiry_date, "%d.%m.%Y")
     except ValueError:
@@ -147,8 +144,6 @@ def execute_admin_create(message):
 
     try:
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        
-        # Meta verileri description alanına gömüyoruz
         meta_description = f"limit:{limit}|expiry:{expiry_date}"
         
         payload = {
@@ -172,7 +167,7 @@ def execute_admin_create(message):
         bot.send_message(chat_id, f"❌ Sistem hatası: `{str(e)}`")
 
 # =====================================================================
-# 👥 PANEL ADMİNLERİ LİSTELEME VE GÜVENLİ SİLME SÜRECİ
+# 👥 BÖLÜM 2: PANEL ADMİNLERİ LİSTELEME VE DETAYLAR (YENİLENEN KISIM)
 # =====================================================================
 
 @bot.callback_query_handler(func=lambda call: call.data == "adminleri_listele")
@@ -214,7 +209,7 @@ def show_admin_details(call):
         
         # 1. Admin bilgilerini (Description okumak için) çekiyoruz
         admins_list = requests.get(f"{MASTER_PANEL_API}/admins", headers=headers, timeout=10).json()
-        target_admin_data = next((a for a in admins_list if a.get("username") == target_username), {})
+        target_admin_data = next((a for a in admins_list if isinstance(a, dict) and a.get("username") == target_username), {})
         
         description = target_admin_data.get("description", "")
         allowed_limit, expiry_date = parse_admin_meta(description)
@@ -223,15 +218,24 @@ def show_admin_details(call):
         response = requests.get(f"{MASTER_PANEL_API}/users", headers=headers, timeout=10)
         all_users = response.json().get("users", []) if response.status_code == 200 else []
         
-        admin_users = [u for u in all_users if isinstance(u, dict) and u.get("admin", {} if u.get("admin") else {}).get("username") == target_username]
+        admin_users = []
+        total_bytes = 0
+        
+        # Kesinlikle NoneType hatası vermeyen güvenli tekli döngü yapısı:
+        for u in all_users:
+            if isinstance(u, dict):
+                admin_info = u.get("admin")
+                if admin_info and isinstance(admin_info, dict) and admin_info.get("username") == target_username:
+                    admin_users.append(u)
+                    total_bytes += u.get("used_traffic", 0) if u.get("used_traffic") else 0
 
         user_count = len(admin_users)
-        total_bytes = sum([u.get("used_traffic", 0) for u in admin_users if isinstance(u, dict) and u.get("used_traffic")])
         total_gb = round(total_bytes / (1024 ** 3), 2)
         
         user_names_list = ""
         for idx, u in enumerate(admin_users, 1):
-            user_names_list += f"{idx}. `{u.get('username')}`\n"
+            if isinstance(u, dict):
+                user_names_list += f"{idx}. `{u.get('username')}`\n"
         
         if not user_names_list:
             user_names_list = "_Bu admin henüz hiç kullanıcı oluşturmamış._"
@@ -269,9 +273,10 @@ def delete_admin_execute(call):
         if users_response.status_code == 200:
             all_users = users_response.json().get("users", [])
             for u in all_users:
-                admin_info = u.get("admin")
-                if admin_info and isinstance(admin_info, dict) and admin_info.get("username") == target_username:
-                    requests.delete(f"{MASTER_PANEL_API}/user/{u.get('username')}", headers=headers, timeout=5)
+                if isinstance(u, dict):
+                    admin_info = u.get("admin")
+                    if admin_info and isinstance(admin_info, dict) and admin_info.get("username") == target_username:
+                        requests.delete(f"{MASTER_PANEL_API}/user/{u.get('username')}", headers=headers, timeout=5)
 
         # Adminin kendisini silme
         res = requests.delete(f"{MASTER_PANEL_API}/admin/{target_username}", headers=headers, timeout=10)
@@ -285,7 +290,7 @@ def delete_admin_execute(call):
         bot.send_message(chat_id, f"❌ Hata: `{str(e)}`")
 
 # =====================================================================
-# 🌐 BÖLÜM 2: HOSTLAR VE TOPLU IP DEĞİŞTİRME YÖNETİMİ
+# 🌐 BÖLÜM 3: HOSTLAR VE TOPLU IP DEĞİŞTİRME YÖNETİMİ
 # =====================================================================
 
 @bot.callback_query_handler(func=lambda call: call.data == "hostlari_listele")
@@ -369,7 +374,6 @@ def execute_bulk_ip_change(message):
 # 🕒 ARKA PLAN SÜREÇ MOTORU: OTOMATİK ZAMANLI SİLME (CRON THREAD)
 # =====================================================================
 def auto_expiry_cron_job():
-    """Her gün gece yarısı adminlerin sürelerini kontrol edip otomatik temizleyen motor"""
     while True:
         token = get_marzban_token()
         if token:
@@ -380,38 +384,36 @@ def auto_expiry_cron_job():
                 today_dt = datetime.strptime(today_str, "%d.%m.%Y")
                 
                 for admin in admins:
-                    username = admin.get("username")
-                    description = admin.get("description", "")
-                    
-                    # Süper admin korunuyor
-                    if username == MASTER_ADMIN_USERNAME: continue
-                    
-                    _, expiry_str = parse_admin_meta(description)
-                    
-                    if expiry_str != "Sınırsız":
-                        try:
-                            expiry_dt = datetime.strptime(expiry_str, "%d.%m.%Y")
-                            # Eğer bitiş tarihi bugünün tarihine eşit veya geçmişse tetiklenir
-                            if today_dt >= expiry_dt:
-                                print(f"🕒 [CRON] {username} admininin süresi doldu. Temizlik başlatılıyor...")
-                                
-                                # 1. Kullanıcılarını kazıyalım
-                                users_res = requests.get(f"{MASTER_PANEL_API}/users", headers=headers, timeout=10).json()
-                                all_users = users_res.get("users", [])
-                                for u in all_users:
-                                    if u.get("admin", {} if u.get("admin") else {}).get("username") == username:
-                                        requests.delete(f"{MASTER_PANEL_API}/user/{u.get('username')}", headers=headers, timeout=5)
-                                
-                                # 2. Adminin kendisini silelim (CLI Delete)
-                                requests.delete(f"{MASTER_PANEL_API}/admin/{username}", headers=headers, timeout=10)
-                                print(f"🗑️ [CRON] {username} ve tüm kullanıcıları başarıyla uçuruldu.")
-                        except Exception as cron_err:
-                            print(f"Cron admin ayrıştırma hatası: {str(cron_err)}")
+                    if isinstance(admin, dict):
+                        username = admin.get("username")
+                        description = admin.get("description", "")
+                        
+                        if username == MASTER_ADMIN_USERNAME: continue
+                        
+                        _, expiry_str = parse_admin_meta(description)
+                        
+                        if expiry_str != "Sınırsız":
+                            try:
+                                expiry_dt = datetime.strptime(expiry_str, "%d.%m.%Y")
+                                if today_dt >= expiry_dt:
+                                    print(f"🕒 [CRON] {username} süresi doldu. Temizlik başlatılıyor...")
+                                    
+                                    users_res = requests.get(f"{MASTER_PANEL_API}/users", headers=headers, timeout=10).json()
+                                    all_users = users_res.get("users", [])
+                                    for u in all_users:
+                                        if isinstance(u, dict):
+                                            admin_info = u.get("admin")
+                                            if admin_info and isinstance(admin_info, dict) and admin_info.get("username") == username:
+                                                requests.delete(f"{MASTER_PANEL_API}/user/{u.get('username')}", headers=headers, timeout=5)
+                                    
+                                    requests.delete(f"{MASTER_PANEL_API}/admin/{username}", headers=headers, timeout=10)
+                                    print(f"🗑️ [CRON] {username} ve tüm kullanıcıları başarıyla uçuruldu.")
+                            except Exception as cron_err:
+                                print(f"Cron admin ayrıştırma hatası: {str(cron_err)}")
             except Exception as global_cron_err:
                 print(f"Global cron hatası: {str(global_cron_err)}")
         
-        # Her 24 saatte bir çalıştır (86400 saniye)
-        time.sleep(86400)
+        time.sleep(86400) # 24 saatte bir çalışır
 
 # =====================================================================
 # 🔄 ASİSTAN HANDLERLAR VE BAŞLATICI
@@ -423,7 +425,6 @@ def back_to_main(call):
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=panel_text, reply_markup=main_menu(), parse_mode="Markdown")
 
 if __name__ == '__main__':
-    # Otomatik süre kontrol thread'ini arka planda izole olarak başlatıyoruz
     cron_thread = threading.Thread(target=auto_expiry_cron_job, daemon=True)
     cron_thread.start()
     
